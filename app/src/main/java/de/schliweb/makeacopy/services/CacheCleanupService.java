@@ -16,6 +16,7 @@ import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Environment;
 import android.os.IBinder;
+import android.os.SystemClock;
 import android.util.Log;
 import androidx.annotation.Nullable;
 import de.schliweb.makeacopy.data.CompletedScansRegistry;
@@ -32,6 +33,7 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * CacheCleanupService is a background service that performs periodic and immediate cache cleanup
@@ -109,6 +111,12 @@ public class CacheCleanupService extends Service {
   private static final int DEFAULT_MAX_DEBUG_FILES = 20;
   private static final int DEFAULT_MAX_TEMP_AGE_HOURS = 2;
   private static final int DEFAULT_MEMORY_THRESHOLD_PERCENT = 75;
+
+  // Minimum gap between forced cleanups. Starting the service from onTrimMemory lifts the process
+  // out of the cached state, so the system re-delivers TRIM_MEMORY_BACKGROUND as soon as the start
+  // has been handled; without this gap that turns into one cleanup (and one GC) per frame.
+  private static final long FORCE_CLEANUP_MIN_INTERVAL_MS = 30_000;
+  private static final AtomicLong lastForceCleanupRequest = new AtomicLong(0);
 
   private ScheduledExecutorService scheduledExecutor;
   private SharedPreferences preferences;
@@ -752,6 +760,13 @@ public class CacheCleanupService extends Service {
    *     perform fallback cleanup.
    */
   public static void forceCleanup(Context context) {
+    long now = SystemClock.elapsedRealtime();
+    long last = lastForceCleanupRequest.get();
+    if ((last != 0 && now - last < FORCE_CLEANUP_MIN_INTERVAL_MS)
+        || !lastForceCleanupRequest.compareAndSet(last, now)) {
+      return;
+    }
+
     try {
       // Try to start service first (works when app is in foreground)
       Intent intent = new Intent(context, CacheCleanupService.class);
