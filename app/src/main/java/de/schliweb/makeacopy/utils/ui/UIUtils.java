@@ -9,12 +9,18 @@
  */
 package de.schliweb.makeacopy.utils.ui;
 
+import android.app.Activity;
+import android.app.Application;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Rect;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
 import android.widget.TextView;
@@ -22,7 +28,10 @@ import android.widget.Toast;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import com.google.android.material.snackbar.BaseTransientBottomBar;
+import com.google.android.material.snackbar.Snackbar;
 import de.schliweb.makeacopy.R;
+import java.lang.ref.WeakReference;
 import lombok.experimental.UtilityClass;
 
 /**
@@ -35,6 +44,20 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class UIUtils {
   private static final String TAG = "UIUtils";
+
+  /** On-screen time of a message, matching the system values for a short and a long toast. */
+  private static final int MESSAGE_SHORT_MS = 2000;
+
+  private static final int MESSAGE_LONG_MS = 3500;
+  private static final int MESSAGE_MAX_LINES = 5;
+  private static final int MESSAGE_RETRY_DELAY_MS = 500;
+
+  /** Limits for a row of controls that counts as stacked on the bottom bar, in dp. */
+  private static final int ACTION_ROW_MAX_GAP_DP = 24;
+
+  private static final int ACTION_ROW_MAX_HEIGHT_DP = 96;
+
+  private static WeakReference<Activity> foregroundActivity = new WeakReference<>(null);
 
   /**
    * Enables or greys out a control and, for a group such as a RadioGroup, its direct children.
@@ -122,10 +145,11 @@ public class UIUtils {
   }
 
   /**
-   * Displays a toast message using the provided string and duration. If Accessibility Mode is
-   * enabled, the message is announced via the device's screen reader instead of showing a toast.
-   * Ensures the use of application context to prevent memory leaks or context-related issues. If
-   * the context or message is null, the method does nothing.
+   * Displays a short message using the provided string and duration. If Accessibility Mode is
+   * enabled, the message is announced via the device's screen reader instead. Otherwise it appears
+   * above the bottom bar of the foreground activity, or as a toast when there is none. Ensures the
+   * use of application context to prevent memory leaks or context-related issues. If the context or
+   * message is null, the method does nothing.
    *
    * @param context The context from which the toast is triggered. If null, no action is taken.
    * @param message The string message to display in the toast. If null, no action is taken.
@@ -169,7 +193,204 @@ public class UIUtils {
       // Best-effort: fall back to Toast below
     }
 
+    if (Looper.myLooper() == Looper.getMainLooper()) {
+      showMessage(appContext, message, duration, true);
+    } else {
+      new Handler(Looper.getMainLooper())
+          .post(() -> showMessage(appContext, message, duration, true));
+    }
+  }
+
+  /**
+   * Remembers the resumed activity, so that messages can be shown inside its window. Call once from
+   * {@link Application#onCreate()}.
+   */
+  public static void trackForegroundActivity(Application application) {
+    application.registerActivityLifecycleCallbacks(
+        new Application.ActivityLifecycleCallbacks() {
+          @Override
+          public void onActivityResumed(Activity activity) {
+            foregroundActivity = new WeakReference<>(activity);
+          }
+
+          @Override
+          public void onActivityPaused(Activity activity) {
+            if (foregroundActivity.get() == activity) {
+              foregroundActivity.clear();
+            }
+          }
+
+          @Override
+          public void onActivityCreated(Activity activity, Bundle savedInstanceState) {}
+
+          @Override
+          public void onActivityStarted(Activity activity) {}
+
+          @Override
+          public void onActivityStopped(Activity activity) {}
+
+          @Override
+          public void onActivitySaveInstanceState(Activity activity, Bundle outState) {}
+
+          @Override
+          public void onActivityDestroyed(Activity activity) {}
+        });
+  }
+
+  /**
+   * Shows the message above the bottom bar of the foreground activity. The system decides where a
+   * toast appears, and on some devices that is on top of the bottom bar. A toast is still used when
+   * the app is not in the foreground or a dialog covers the activity.
+   */
+  private static void showMessage(
+      Context appContext, String message, int duration, boolean mayRetry) {
+    try {
+      if (showAboveBottomBar(foregroundActivity.get(), message, duration)) {
+        return;
+      }
+    } catch (Throwable t) {
+      Log.w(TAG, "In-app message failed, falling back to a toast", t);
+      mayRetry = false;
+    }
+    if (mayRetry) {
+      // Right after a file picker or a dialog closes, the activity has not got its window focus
+      // back yet. Give it a moment before settling for a toast.
+      new Handler(Looper.getMainLooper())
+          .postDelayed(
+              () -> showMessage(appContext, message, duration, false), MESSAGE_RETRY_DELAY_MS);
+      return;
+    }
     Toast.makeText(appContext, message, duration).show();
+  }
+
+  private static boolean showAboveBottomBar(Activity activity, String message, int duration) {
+    if (activity == null
+        || activity.isFinishing()
+        || activity.isDestroyed()
+        || !activity.hasWindowFocus()) {
+      return false;
+    }
+    View content = activity.findViewById(android.R.id.content);
+    if (content == null) {
+      return false;
+    }
+
+    Snackbar snackbar =
+        Snackbar.make(
+            content, message, duration == Toast.LENGTH_LONG ? MESSAGE_LONG_MS : MESSAGE_SHORT_MS);
+    TextView text = snackbar.getView().findViewById(com.google.android.material.R.id.snackbar_text);
+    if (text != null) {
+      text.setMaxLines(MESSAGE_MAX_LINES);
+    }
+    snackbar.setAnchorView(findMessageAnchor(content));
+    snackbar.setAnchorViewLayoutListenerEnabled(true);
+
+    // Follow the bottom bar when the screen changes while the message is visible
+    ViewTreeObserver.OnGlobalLayoutListener reanchor =
+        () -> {
+          View bar = findMessageAnchor(content);
+          if (bar != snackbar.getAnchorView()) {
+            snackbar.setAnchorView(bar);
+            snackbar.setAnchorViewLayoutListenerEnabled(true);
+            snackbar.getView().requestLayout();
+          }
+        };
+    snackbar.addCallback(
+        new BaseTransientBottomBar.BaseCallback<Snackbar>() {
+          @Override
+          public void onShown(Snackbar transientBottomBar) {
+            content.getViewTreeObserver().addOnGlobalLayoutListener(reanchor);
+          }
+
+          @Override
+          public void onDismissed(Snackbar transientBottomBar, int event) {
+            content.getViewTreeObserver().removeOnGlobalLayoutListener(reanchor);
+          }
+        });
+    snackbar.show();
+    return true;
+  }
+
+  /**
+   * Finds the view a message has to stay clear of: the bottom bar, or the topmost row of controls
+   * stacked directly on it, such as the tool row of the crop screen. A message blocks touches, so
+   * it must not sit on any of them.
+   */
+  private static View findMessageAnchor(View root) {
+    View anchor = findBottomBar(root);
+    if (anchor == null || !(anchor.getParent() instanceof ViewGroup parent)) {
+      return anchor;
+    }
+    float density = root.getResources().getDisplayMetrics().density;
+    int maxGap = (int) (ACTION_ROW_MAX_GAP_DP * density);
+    int maxHeight = (int) (ACTION_ROW_MAX_HEIGHT_DP * density);
+    boolean moved = true;
+    while (moved) {
+      moved = false;
+      for (int i = 0; i < parent.getChildCount(); i++) {
+        View child = parent.getChildAt(i);
+        int gap = anchor.getTop() - child.getBottom();
+        if (child != anchor
+            && child.getVisibility() == View.VISIBLE
+            && child.getHeight() > 0
+            && child.getHeight() <= maxHeight
+            && child.getTop() < anchor.getTop()
+            && Math.abs(gap) <= maxGap
+            && hasClickable(child)) {
+          anchor = child;
+          moved = true;
+          break;
+        }
+      }
+    }
+    return anchor;
+  }
+
+  private static boolean hasClickable(View v) {
+    if (v.getVisibility() != View.VISIBLE) {
+      return false;
+    }
+    if (v.isClickable()) {
+      return true;
+    }
+    if (v instanceof ViewGroup group) {
+      for (int i = 0; i < group.getChildCount(); i++) {
+        if (hasClickable(group.getChildAt(i))) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Finds the visible bottom bar that reaches highest up the screen. Bottom bars are recognised by
+   * the tag that {@link #applyBottomBarInsets(View)} leaves on them.
+   */
+  private static View findBottomBar(View root) {
+    View best = null;
+    int bestTop = Integer.MAX_VALUE;
+    java.util.ArrayDeque<View> pending = new java.util.ArrayDeque<>();
+    pending.add(root);
+    int[] location = new int[2];
+    while (!pending.isEmpty()) {
+      View v = pending.poll();
+      if (v.getVisibility() != View.VISIBLE) {
+        continue;
+      }
+      if (v.getTag(R.id.tag_bottom_bar_base_padding) != null) {
+        v.getLocationInWindow(location);
+        if (v.getHeight() > 0 && location[1] < bestTop) {
+          best = v;
+          bestTop = location[1];
+        }
+      } else if (v instanceof ViewGroup group) {
+        for (int i = 0; i < group.getChildCount(); i++) {
+          pending.add(group.getChildAt(i));
+        }
+      }
+    }
+    return best;
   }
 
   /**
