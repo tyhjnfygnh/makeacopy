@@ -36,6 +36,20 @@
 
         <!-- Global MaterialButton style -->
         <item name="materialButtonStyle">@style/Widget.MakeACopy.Button</item>
+
+        <!-- Messages follow the theme instead of inverting it -->
+        <item name="snackbarStyle">@style/Widget.MakeACopy.Snackbar</item>
+        <item name="snackbarTextViewStyle">@style/Widget.MakeACopy.Snackbar.TextView</item>
+    </style>
+
+    <!-- Message above the bottom bar: dark in the dark theme and light in the light theme, like
+         the system toast it replaces. The Material default inverts the surface colors. -->
+    <style name="Widget.MakeACopy.Snackbar" parent="Widget.Material3.Snackbar">
+        <item name="backgroundTint">?attr/colorSurfaceContainerHighest</item>
+    </style>
+
+    <style name="Widget.MakeACopy.Snackbar.TextView" parent="Widget.Material3.Snackbar.TextView">
+        <item name="android:textColor">?attr/colorOnSurface</item>
     </style>
 
     <!-- Bottom-sheet overlay (no dependency on com.google.android.material.R in code) -->

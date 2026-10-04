@@ -38,6 +38,10 @@
 
         <!-- Global MaterialButton style -->
         <item name="materialButtonStyle">@style/Widget.MakeACopy.Button</item>
+
+        <!-- Messages follow the theme instead of inverting it -->
+        <item name="snackbarStyle">@style/Widget.MakeACopy.Snackbar</item>
+        <item name="snackbarTextViewStyle">@style/Widget.MakeACopy.Snackbar.TextView</item>
     </style>
 
     <!-- Bottom-sheet overlay (no dependency on com.google.android.material.R in code) -->
