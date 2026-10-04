@@ -40,6 +40,9 @@ public class MakeACopyApplication extends Application {
     // In-app language must be known before anything resolves strings off the UI (Android <= 12)
     de.schliweb.makeacopy.utils.ui.AppLanguage.restoreEarly(this);
 
+    // Messages are shown inside the foreground activity, above its bottom bar
+    de.schliweb.makeacopy.utils.ui.UIUtils.trackForegroundActivity(this);
+
     // Material You dynamic color (Android 12+). No-op on older devices, where the
     // static fallback palette from themes.xml is used. Works fully offline.
     DynamicColors.applyToActivitiesIfAvailable(this);

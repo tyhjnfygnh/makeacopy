@@ -1445,8 +1445,7 @@ public class CropFragment extends Fragment {
           String msg =
               getString(newState ? R.string.crop_snap_toggle_on : R.string.crop_snap_toggle_off);
           try {
-            android.widget.Toast.makeText(requireContext(), msg, android.widget.Toast.LENGTH_SHORT)
-                .show();
+            UIUtils.showToast(requireContext(), msg, android.widget.Toast.LENGTH_SHORT);
           } catch (Throwable ignore) {
             // Best-effort user-visible message
           }
@@ -1489,8 +1488,7 @@ public class CropFragment extends Fragment {
           String msg =
               getString(newState ? R.string.crop_curved_mode_on : R.string.crop_curved_mode_off);
           try {
-            android.widget.Toast.makeText(requireContext(), msg, android.widget.Toast.LENGTH_SHORT)
-                .show();
+            UIUtils.showToast(requireContext(), msg, android.widget.Toast.LENGTH_SHORT);
           } catch (Throwable ignore) {
             // Best-effort user-visible message
           }

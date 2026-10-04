@@ -208,11 +208,10 @@ public class CompletedScansPickerFragment extends Fragment
     selectedIds.clear();
     if (removed > 0) {
       try {
-        android.widget.Toast.makeText(
-                requireContext(),
-                R.string.removed_from_registry_toast,
-                android.widget.Toast.LENGTH_SHORT)
-            .show();
+        UIUtils.showToast(
+            requireContext(),
+            R.string.removed_from_registry_toast,
+            android.widget.Toast.LENGTH_SHORT);
       } catch (Throwable ignore) {
         // Best-effort; failure is non-critical
       }
@@ -290,11 +289,10 @@ public class CompletedScansPickerFragment extends Fragment
                   try {
                     de.schliweb.makeacopy.data.RegistryCleaner.removeEntryAndFiles(
                         requireContext().getApplicationContext(), id);
-                    android.widget.Toast.makeText(
-                            requireContext(),
-                            R.string.removed_from_registry_toast,
-                            android.widget.Toast.LENGTH_SHORT)
-                        .show();
+                    UIUtils.showToast(
+                        requireContext(),
+                        R.string.removed_from_registry_toast,
+                        android.widget.Toast.LENGTH_SHORT);
                   } catch (Throwable ignore) {
                     // Best-effort; failure is non-critical
                   }
