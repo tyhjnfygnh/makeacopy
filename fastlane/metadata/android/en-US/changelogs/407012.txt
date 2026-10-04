@@ -2,4 +2,5 @@ MakeACopy 4.7.1
 * New: every setting now lives in one options dialog, grouped into collapsible sections.
 * New: the low-light flashlight prompt can be switched off ("Don't ask again" or in the camera options).
 * Fixed: the bottom button bars span the full width and reach the bottom edge of the screen.
-* Fixed: short messages no longer cover the buttons on some devices; they appear above the button bar and follow the light or dark theme.
+* Fixed: short messages no longer cover the buttons; they appear above the button bar and follow the light or dark theme.
+* Fixed: camera preview and photo sometimes shrank to a landscape strip.
