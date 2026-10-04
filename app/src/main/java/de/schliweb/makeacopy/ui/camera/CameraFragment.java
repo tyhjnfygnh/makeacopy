@@ -1153,8 +1153,15 @@ public class CameraFragment extends Fragment implements SensorEventListener {
     } catch (Throwable t) {
       Log.w(TAG, "buildSharedViewPort: PreviewView.getViewPort failed, using 4:3 fallback", t);
     }
-    // Fallback: enforce the same 4:3 sensor ratio that all ResolutionSelectors request.
-    return new ViewPort.Builder(new android.util.Rational(4, 3), rotation).build();
+    // Fallback: enforce the same 4:3 sensor ratio that all ResolutionSelectors request. The ratio
+    // is expressed in display orientation, so it is 3:4 in portrait; FIT mirrors the PreviewView's
+    // FIT_CENTER and keeps the full sensor area instead of cropping the capture.
+    boolean portrait =
+        getResources().getConfiguration().orientation
+            == android.content.res.Configuration.ORIENTATION_PORTRAIT;
+    android.util.Rational ratio =
+        portrait ? new android.util.Rational(3, 4) : new android.util.Rational(4, 3);
+    return new ViewPort.Builder(ratio, rotation).setScaleType(ViewPort.FIT).build();
   }
 
   /**
