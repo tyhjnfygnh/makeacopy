@@ -1,0 +1,45 @@
+name: Build Irfan Offline PDF APK
+
+on:
+  push:
+    branches:
+      - irfan-apk-build
+    paths:
+      - '.github/workflows/irfan-apk-build.yml'
+      - 'app/**'
+      - 'gradle/**'
+      - '*.gradle'
+      - 'gradlew'
+      - 'gradle.properties'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build installable offline APK
+        run: ./gradlew --no-daemon assembleStandardRelease -PenableAbiSplits=false -Pedition=full
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Irfan-Offline-PDF-APK
+          path: app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 14
