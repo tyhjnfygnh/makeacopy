@@ -35,11 +35,11 @@ android {
     ndkVersion = '28.0.13004108'
 
     defaultConfig {
-        applicationId "de.schliweb.makeacopy"
+        applicationId "com.irfan.pdftotextoffline"
         minSdk = 29
         targetSdk = 36
-        versionCode 40701
-        versionName "4.7.1"
+        versionCode 100
+        versionName "1.0.0"
 
         // Use default AndroidX test runner
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -133,6 +133,9 @@ android {
             // F-Droid will sign with their own keys
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.release
+            } else {
+                // Make user-built CI APKs installable when private release signing secrets are unavailable.
+                signingConfig = signingConfigs.debug
             }
         }
     }
