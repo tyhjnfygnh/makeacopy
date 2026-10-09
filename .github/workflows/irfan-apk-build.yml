@@ -89,12 +89,12 @@ jobs:
           ./scripts/build_onnxruntime_android.sh
 
       - name: Build installable offline APK
-        run: ./gradlew --no-daemon :app:assembleStandardRelease -PenableAbiSplits=false -Pedition=full
+        run: ./gradlew --no-daemon :app:assembleStandardRelease -PenableAbiSplits=false -Pedition=light
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Irfan-Offline-PDF-APK
+          name: Irfan-Offline-PDF-APK-Light
           path: app/build/outputs/apk/standard/release/*.apk
           if-no-files-found: error
           retention-days: 14
